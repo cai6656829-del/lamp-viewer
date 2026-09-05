@@ -27484,13 +27484,14 @@ var CONFIG = {
   colorOptions: ["#f4f4f4", "#2b2b2b", "#c9a06a", "#7a8a99", "#b0483a"]
 };
 var MATERIALS = {
-  HeatSink: { color: 0, metalness: 0.45, roughness: 0.57, refl: 1.85, bumpScale: 0.13 },
-  SpringClip: { color: 12105912, metalness: 1, roughness: 0.25, refl: 1.2, bumpScale: 1 },
-  Trim: { color: 12434877, metalness: 1, roughness: 0.6, refl: 4, bumpScale: 1 },
-  Reflector: { color: 8803910, metalness: 1, roughness: 0.11, refl: 4, bumpScale: 1 },
-  SilverReflector: { color: 13619151, metalness: 1, roughness: 0, refl: 4, bumpScale: 2 },
+  // 全部改用 MeshPhysicalMaterial：clearcoat 让白色塑料有高级渐变，金属有真实软箱反射
+  HeatSink: { color: 1710618, metalness: 0.7, roughness: 0.34, refl: 2, bumpScale: 0.13, clearcoat: 0, clearcoatRoughness: 0.3 },
+  SpringClip: { color: 13158600, metalness: 1, roughness: 0.14, refl: 2.6, bumpScale: 1, clearcoat: 0.1, clearcoatRoughness: 0.12 },
+  Trim: { color: 15395820, metalness: 0, roughness: 0.3, refl: 1.6, bumpScale: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.06 },
+  Reflector: { color: 10115653, metalness: 1, roughness: 0.1, refl: 3.6, bumpScale: 1, clearcoat: 0.3, clearcoatRoughness: 0.08 },
+  SilverReflector: { color: 13948116, metalness: 1, roughness: 0.02, refl: 3.8, bumpScale: 2, clearcoat: 0.2, clearcoatRoughness: 0.05 },
   Lens: { color: 16777215, metalness: 0.03, roughness: 0, refl: 0, bumpScale: 1 },
-  LED: { color: 16749824, metalness: 0.76, roughness: 0.05, refl: 0, bumpScale: 1, emissive: 16752970, emissiveIntensity: 3 }
+  LED: { color: 16752970, metalness: 0, roughness: 0.4, refl: 0.6, bumpScale: 1, emissive: 16757082, emissiveIntensity: 4 }
 };
 
 // js/main.js
@@ -27512,7 +27513,8 @@ var TONE_MAP = {
 };
 var canvas = document.getElementById("viewer");
 var renderer = new WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+var IS_MOBILE = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = PCFSoftShadowMap;
@@ -27574,9 +27576,9 @@ scene.add(rimLight);
 var composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 var ssao = new SSAOPass(scene, camera, innerWidth, innerHeight);
-ssao.kernelRadius = 0.5;
+ssao.kernelRadius = 0.6;
 ssao.minDistance = 1e-3;
-ssao.maxDistance = 0.03;
+ssao.maxDistance = 0.04;
 composer.addPass(ssao);
 if (CONFIG.bloom.enabled) {
   const bloom = new UnrealBloomPass(
@@ -27656,32 +27658,69 @@ scene.add(model);
 indexParts(model);
 if (CONFIG.useMaterialOverride) applyMaterialOverrides();
 function applyMaterialOverrides() {
+  const converted = /* @__PURE__ */ new Map();
+  const toPhysical = (mat, key) => {
+    if (converted.has(mat.uuid)) return converted.get(mat.uuid);
+    const ov = MATERIALS[key] || {};
+    const phys = new MeshPhysicalMaterial({ name: mat.name || key });
+    if (ov.color != null) phys.color.setHex(ov.color);
+    else phys.color.copy(mat.color || new Color(16777215));
+    phys.metalness = ov.metalness != null ? ov.metalness : mat.metalness ?? 0;
+    phys.roughness = ov.roughness != null ? ov.roughness : mat.roughness ?? 0.5;
+    phys.envMapIntensity = ov.refl != null ? ov.refl : phys.metalness >= 0.5 ? 3.6 : 1;
+    if (ov.clearcoat != null) phys.clearcoat = ov.clearcoat;
+    if (ov.clearcoatRoughness != null) phys.clearcoatRoughness = ov.clearcoatRoughness;
+    phys.specularIntensity = ov.specularIntensity != null ? ov.specularIntensity : 0.5;
+    if ("sheen" in phys) {
+      phys.sheen = 0;
+      phys.sheenRoughness = 1;
+    }
+    if (ov.emissive != null) {
+      phys.emissive.setHex(ov.emissive);
+      phys.emissiveIntensity = ov.emissiveIntensity ?? 1;
+    } else {
+      phys.emissive.set(0);
+      phys.emissiveIntensity = 0;
+    }
+    if (ov.bumpScale != null) phys.bumpScale = ov.bumpScale;
+    ["map", "normalMap", "bumpMap", "aoMap", "roughnessMap", "metalnessMap", "emissiveMap"].forEach((p) => {
+      if (mat[p]) phys[p] = mat[p];
+    });
+    if (mat.normalScale) phys.normalScale.copy(mat.normalScale);
+    if (mat.aoMapIntensity != null) phys.aoMapIntensity = mat.aoMapIntensity;
+    if (mat.transparent != null) phys.transparent = mat.transparent;
+    if (mat.opacity != null) phys.opacity = mat.opacity;
+    if (mat.side != null) phys.side = mat.side;
+    phys.needsUpdate = true;
+    converted.set(mat.uuid, phys);
+    return phys;
+  };
   model.traverse((o) => {
     if (!o.isMesh) return;
-    const mats = Array.isArray(o.material) ? o.material : [o.material];
-    mats.forEach((mat) => {
-      if (!mat) return;
-      const key = Object.keys(MATERIALS).find((k) => mat.name && (mat.name === k || mat.name.startsWith(k + "_")));
-      if (!key) return;
-      const ov = MATERIALS[key];
-      if (!ov) return;
-      if (ov.color != null) mat.color.setHex(ov.color);
-      if (ov.metalness != null) mat.metalness = ov.metalness;
-      if (ov.roughness != null) mat.roughness = ov.roughness;
-      if (ov.transparent != null) mat.transparent = ov.transparent;
-      if (ov.opacity != null) mat.opacity = ov.opacity;
-      mat.envMapIntensity = ov.refl != null ? ov.refl : ov.metalness >= 0.5 ? 3.6 : 1;
-      if (ov.bumpScale != null) mat.bumpScale = ov.bumpScale;
-      if (ov.emissive != null) {
-        mat.emissive.setHex(ov.emissive);
-        mat.emissiveIntensity = ov.emissiveIntensity ?? 1;
-      } else {
-        mat.emissive.set(0);
-        mat.emissiveIntensity = 0;
-      }
-      mat.needsUpdate = true;
-    });
+    const src = Array.isArray(o.material) ? o.material : [o.material];
+    const keys = src.map((m) => m && m.name ? Object.keys(MATERIALS).find((k) => m.name === k || m.name.startsWith(k + "_")) : null);
+    if (keys.every((k) => !k)) return;
+    const out = src.map((m, i) => m && keys[i] ? toPhysical(m, keys[i]) : m);
+    o.material = Array.isArray(o.material) ? out : out[0];
   });
+}
+function addLEDLight() {
+  const leds = [];
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    const n = o.material && o.material.name || "";
+    if (n === "LED" || n.startsWith("LED_")) leds.push(o);
+  });
+  if (!leds.length) return;
+  const box = new Box3();
+  leds.forEach((m) => box.expandByObject(m));
+  const center = box.getCenter(new Vector3());
+  const size = box.getSize(new Vector3()).length() || 1;
+  const ledLight = new PointLight(16757596, 3, Math.max(2, size * 3), 2);
+  ledLight.position.copy(center);
+  scene.add(ledLight);
+  window.__ledLight = ledLight;
+  console.log("LED_LIGHT", JSON.stringify({ pos: center.toArray(), intensity: ledLight.intensity, distance: ledLight.distance }));
 }
 model.traverse((o) => {
   if (o.isMesh) {
@@ -27690,7 +27729,7 @@ model.traverse((o) => {
   }
 });
 keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.mapSize.set(IS_MOBILE ? 1024 : 2048, IS_MOBILE ? 1024 : 2048);
 keyLight.shadow.camera.near = 0.5;
 keyLight.shadow.camera.far = 40;
 keyLight.shadow.camera.left = -8;
@@ -27747,6 +27786,7 @@ function upgradeLens() {
 }
 upgradeLens();
 applyTextures();
+addLEDLight();
 function applyTextures() {
   const loadMap = (url, prefix) => {
     new TextureLoader().load(url, (tex) => {
