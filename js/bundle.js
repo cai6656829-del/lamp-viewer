@@ -27488,11 +27488,11 @@ var MATERIALS = {
   // 高端产品摄影参数：白壳=物理材质清漆，反光杯=高反射软箱，铝=金属拉丝
   HeatSink: { color: 2764080, metalness: 0.7, roughness: 0.3, refl: 1.6, bumpScale: 0.1, clearcoat: 0, clearcoatRoughness: 0.4 },
   SpringClip: { color: 13619926, metalness: 0.9, roughness: 0.2, refl: 2, bumpScale: 1, clearcoat: 0.08, clearcoatRoughness: 0.2 },
-  Trim: { color: 15922164, metalness: 0, roughness: 0.3, refl: 1.8, bumpScale: 0.3, clearcoat: 0.15, clearcoatRoughness: 0.08 },
-  Reflector: { color: 10115653, metalness: 0.9, roughness: 0.08, refl: 2, bumpScale: 1, clearcoat: 0.2, clearcoatRoughness: 0.06 },
-  SilverReflector: { color: 14211288, metalness: 0.9, roughness: 0.06, refl: 2.2, bumpScale: 2, clearcoat: 0.15, clearcoatRoughness: 0.05 },
+  Trim: { color: 16119543, metalness: 0, roughness: 0.3, refl: 1.8, bumpScale: 0.3, clearcoat: 0.3, clearcoatRoughness: 0.05 },
+  Reflector: { color: 10115653, metalness: 0.9, roughness: 0.06, refl: 2.5, bumpScale: 1, clearcoat: 0.2, clearcoatRoughness: 0.06 },
+  SilverReflector: { color: 14211288, metalness: 0.9, roughness: 0.05, refl: 2.5, bumpScale: 2, clearcoat: 0.15, clearcoatRoughness: 0.05 },
   Lens: { color: 16777215, metalness: 0.03, roughness: 0, refl: 0, bumpScale: 1 },
-  LED: { color: 16757082, metalness: 0, roughness: 0.4, refl: 0.6, bumpScale: 1, emissive: 16761706, emissiveIntensity: 6 }
+  LED: { color: 16757082, metalness: 0, roughness: 0.4, refl: 0.6, bumpScale: 1, emissive: 16761706, emissiveIntensity: 4 }
 };
 
 // js/main.js
@@ -27731,14 +27731,61 @@ function addLEDLight() {
   leds.forEach((m) => box.expandByObject(m));
   const center = box.getCenter(new Vector3());
   const size = box.getSize(new Vector3()).length() || 1;
-  const ledLight = new PointLight(16757596, 6, Math.max(4, size * 6), 1.4);
-  ledLight.position.copy(center);
-  scene.add(ledLight);
-  const glow = new PointLight(16761706, 2, Math.max(8, size * 10), 1.6);
-  glow.position.copy(center).add(new Vector3(0, 0.1, 0.2));
-  scene.add(glow);
-  window.__ledLight = ledLight;
-  console.log("LED_LIGHT", JSON.stringify({ pos: center.toArray(), intensity: ledLight.intensity, distance: ledLight.distance }));
+  const spot = new SpotLight(16761706, 2, Math.max(3, size * 4), 0.7, 0.6, 1.6);
+  spot.position.copy(center).add(new Vector3(0, size * 0.7, 0));
+  spot.target.position.copy(center).add(new Vector3(0, -size * 0.4, 0));
+  scene.add(spot);
+  scene.add(spot.target);
+  window.__ledLight = spot;
+  console.log("LED_SPOT", JSON.stringify({ pos: center.toArray(), intensity: spot.intensity }));
+}
+function makeStudioEnv() {
+  const w = 1024, h = 512;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#050505";
+  ctx.fillRect(0, 0, w, h);
+  const soft = (x, y, ww, hh, a) => {
+    ctx.fillStyle = "rgba(255,255,255," + a + ")";
+    ctx.fillRect(x, y, ww, hh);
+  };
+  soft(w * 0.14, h * 0.03, w * 0.22, h * 0.18, 0.98);
+  soft(w * 0.6, h * 0.03, w * 0.22, h * 0.18, 0.98);
+  soft(w * 0.03, h * 0.2, w * 0.05, h * 0.5, 0.92);
+  soft(w * 0.92, h * 0.2, w * 0.05, h * 0.5, 0.92);
+  ctx.fillStyle = "rgba(110,120,135,0.5)";
+  ctx.fillRect(0, h * 0.84, w, h * 0.16);
+  const tex = new CanvasTexture(c);
+  tex.mapping = EquirectangularReflectionMapping;
+  tex.colorSpace = SRGBColorSpace;
+  tex.generateMipmaps = true;
+  tex.minFilter = LinearMipmapLinearFilter;
+  return tex;
+}
+function applyStudioCupEnv() {
+  const pmrem = new PMREMGenerator(renderer);
+  const envTex = makeStudioEnv();
+  const envMap = pmrem.fromEquirectangular(envTex).texture;
+  const targets = [];
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    mats.forEach((m) => {
+      if (!m) return;
+      const n = m.name || "";
+      if (n === "Reflector" || n.startsWith("Reflector_") || n === "SilverReflector" || n.startsWith("SilverReflector_")) targets.push(m);
+    });
+  });
+  targets.forEach((m) => {
+    m.envMap = envMap;
+    m.envMapIntensity = Math.max(m.envMapIntensity != null ? m.envMapIntensity : 1, 2.5);
+    m.needsUpdate = true;
+  });
+  envTex.dispose();
+  pmrem.dispose();
+  console.log("CUP_STUDIO_ENV", targets.length);
 }
 model.traverse((o) => {
   if (o.isMesh) {
@@ -27805,6 +27852,7 @@ function upgradeLens() {
 upgradeLens();
 applyTextures();
 addLEDLight();
+applyStudioCupEnv();
 function applyTextures() {
   const loadMap = (url, prefix) => {
     new TextureLoader().load(url, (tex) => {
