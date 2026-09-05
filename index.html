@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Recessed Downlight — Assembly Manual</title>
+    <link rel="stylesheet" href="./style.css?v=19" />
+  </head>
+  <body>
+    <canvas id="viewer"></canvas>
+
+    <!-- loading overlay -->
+    <div id="loading">
+      <div class="loading-inner">
+        <div class="brand">LUMIN</div>
+        <div class="spin"></div>
+        <div class="hint">Loading 3D…</div>
+      </div>
+    </div>
+
+    <!-- top-left assembly manual panel -->
+    <section class="manual" id="manual">
+      <div class="manual-top">
+        <button class="home" id="home" title="Reset">⌂</button>
+        <span class="brand-sm">LUMIN</span>
+      </div>
+      <div class="manual-title">RECESSED DOWNLIGHT</div>
+      <div class="manual-row">
+        <div class="counter" id="counter">1–<span id="total">3</span></div>
+        <div class="manual-controls" id="nav">
+          <button class="mbtn ghost" id="prevBtn" disabled>‹ Prev</button>
+          <button class="mbtn ghost" id="nextBtn">Next ›</button>
+        </div>
+      </div>
+        <button class="mbtn primary" id="startBtn">Start assembly manual</button>
+    </section>
+
+    <!-- settings trigger (hidden-style) -->
+    <button class="settings-btn" id="settingsBtn">设置</button>
+
+    <!-- settings panel -->
+    <div class="settings" id="settings">
+      <div class="settings-head">
+        <span>设置</span>
+        <button class="close" id="closeSettings">×</button>
+      </div>
+      <div class="settings-body" id="settingsBody"></div>
+    </div>
+
+    <script type="module" src="./js/bundle.js?v=19"></script>
+  </body>
+</html>
