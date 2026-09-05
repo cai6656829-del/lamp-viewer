@@ -27591,9 +27591,9 @@ scene.add(rimLight);
 var composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 var ssao = new SSAOPass(scene, camera, innerWidth, innerHeight);
-ssao.kernelRadius = 0.35;
-ssao.minDistance = 5e-4;
-ssao.maxDistance = 0.02;
+ssao.kernelRadius = 0.22;
+ssao.minDistance = 2e-3;
+ssao.maxDistance = 0.012;
 composer.addPass(ssao);
 if (CONFIG.bloom.enabled) {
   const bloom = new UnrealBloomPass(
@@ -27630,29 +27630,48 @@ var gradePass = new ShaderPass({
 });
 composer.addPass(gradePass);
 composer.addPass(new OutputPass());
-addContactShadow();
-function addContactShadow() {
+function addStudioFloor() {
+  const box = new Box3().setFromObject(model);
+  const size = box.getSize(new Vector3());
+  const cx = (box.min.x + box.max.x) / 2;
+  const cz = (box.min.z + box.max.z) / 2;
+  const floorY = box.min.y - 0.02;
+  const D = Math.max(size.x, size.z, 1) * 12;
   const S = 512;
   const c = document.createElement("canvas");
   c.width = c.height = S;
   const ctx = c.getContext("2d");
-  const cx = S / 2, r = S / 2;
-  const g = ctx.createRadialGradient(cx, cx, r * 0.05, cx, cx, r * 0.98);
-  g.addColorStop(0, "rgba(0,0,0,0.5)");
-  g.addColorStop(0.3, "rgba(0,0,0,0.36)");
-  g.addColorStop(0.55, "rgba(0,0,0,0.22)");
-  g.addColorStop(0.78, "rgba(0,0,0,0.1)");
-  g.addColorStop(0.93, "rgba(0,0,0,0.03)");
-  g.addColorStop(1, "rgba(0,0,0,0)");
+  const g = ctx.createRadialGradient(S / 2, S / 2, S * 0.02, S / 2, S / 2, S * 0.5);
+  g.addColorStop(0, "#dcdfe3");
+  g.addColorStop(0.45, "#ced3d9");
+  g.addColorStop(1, "#a9b0b9");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, S, S);
-  const tex = new CanvasTexture(c);
-  const mat = new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.85 });
-  const m = new Mesh(new PlaneGeometry(2.8, 2.8), mat);
-  m.rotation.x = -Math.PI / 2;
-  m.position.y = 0.012;
-  m.renderOrder = 1;
-  scene.add(m);
+  const ftex = new CanvasTexture(c);
+  ftex.colorSpace = SRGBColorSpace;
+  const floorMat = new MeshStandardMaterial({ map: ftex, roughness: 0.96, metalness: 0 });
+  const floor = new Mesh(new PlaneGeometry(D, D), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(cx, floorY, cz);
+  floor.receiveShadow = true;
+  scene.add(floor);
+  const c2 = document.createElement("canvas");
+  c2.width = c2.height = S;
+  const ctx2 = c2.getContext("2d");
+  const g2 = ctx2.createRadialGradient(S / 2, S / 2, S * 0.04, S / 2, S / 2, S * 0.5);
+  g2.addColorStop(0, "rgba(24,26,30,0.30)");
+  g2.addColorStop(0.4, "rgba(24,26,30,0.20)");
+  g2.addColorStop(0.7, "rgba(24,26,30,0.09)");
+  g2.addColorStop(1, "rgba(24,26,30,0)");
+  ctx2.fillStyle = g2;
+  ctx2.fillRect(0, 0, S, S);
+  const pSize = Math.max(size.x, size.z) * 1.5;
+  const pMat = new MeshBasicMaterial({ map: new CanvasTexture(c2), transparent: true, depthWrite: false, opacity: 0.5 });
+  const patch = new Mesh(new PlaneGeometry(pSize, pSize), pMat);
+  patch.rotation.x = -Math.PI / 2;
+  patch.position.set(cx, floorY + 0.015, cz);
+  patch.renderOrder = 2;
+  scene.add(patch);
 }
 var parts = {};
 var model = null;
@@ -27739,54 +27758,6 @@ function addLEDLight() {
   window.__ledLight = spot;
   console.log("LED_SPOT", JSON.stringify({ pos: center.toArray(), intensity: spot.intensity }));
 }
-function makeStudioEnv() {
-  const w = 1024, h = 512;
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext("2d");
-  ctx.fillStyle = "#050505";
-  ctx.fillRect(0, 0, w, h);
-  const soft = (x, y, ww, hh, a) => {
-    ctx.fillStyle = "rgba(255,255,255," + a + ")";
-    ctx.fillRect(x, y, ww, hh);
-  };
-  soft(w * 0.14, h * 0.03, w * 0.22, h * 0.18, 0.98);
-  soft(w * 0.6, h * 0.03, w * 0.22, h * 0.18, 0.98);
-  soft(w * 0.03, h * 0.2, w * 0.05, h * 0.5, 0.92);
-  soft(w * 0.92, h * 0.2, w * 0.05, h * 0.5, 0.92);
-  ctx.fillStyle = "rgba(110,120,135,0.5)";
-  ctx.fillRect(0, h * 0.84, w, h * 0.16);
-  const tex = new CanvasTexture(c);
-  tex.mapping = EquirectangularReflectionMapping;
-  tex.colorSpace = SRGBColorSpace;
-  tex.generateMipmaps = true;
-  tex.minFilter = LinearMipmapLinearFilter;
-  return tex;
-}
-function applyStudioCupEnv() {
-  const pmrem = new PMREMGenerator(renderer);
-  const envTex = makeStudioEnv();
-  const envMap = pmrem.fromEquirectangular(envTex).texture;
-  const targets = [];
-  model.traverse((o) => {
-    if (!o.isMesh) return;
-    const mats = Array.isArray(o.material) ? o.material : [o.material];
-    mats.forEach((m) => {
-      if (!m) return;
-      const n = m.name || "";
-      if (n === "Reflector" || n.startsWith("Reflector_") || n === "SilverReflector" || n.startsWith("SilverReflector_")) targets.push(m);
-    });
-  });
-  targets.forEach((m) => {
-    m.envMap = envMap;
-    m.envMapIntensity = Math.max(m.envMapIntensity != null ? m.envMapIntensity : 1, 2.5);
-    m.needsUpdate = true;
-  });
-  envTex.dispose();
-  pmrem.dispose();
-  console.log("CUP_STUDIO_ENV", targets.length);
-}
 model.traverse((o) => {
   if (o.isMesh) {
     o.castShadow = true;
@@ -27852,7 +27823,7 @@ function upgradeLens() {
 upgradeLens();
 applyTextures();
 addLEDLight();
-applyStudioCupEnv();
+addStudioFloor();
 function applyTextures() {
   const loadMap = (url, prefix) => {
     new TextureLoader().load(url, (tex) => {
