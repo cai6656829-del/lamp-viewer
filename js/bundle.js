@@ -27477,7 +27477,7 @@ var CONFIG = {
   bloom: {
     enabled: true,
     threshold: 1.5,
-    strength: 0.8,
+    strength: 0.6,
     radius: 0.66
     // = Vectary size
   },
@@ -27541,11 +27541,11 @@ var MATERIALS = {
   // 高端产品摄影参数：白壳=物理材质清漆，反光杯=高反射软箱，铝=金属拉丝
   HeatSink: { color: 2764080, metalness: 0.7, roughness: 0.3, refl: 1, bumpScale: 0.1, clearcoat: 0, clearcoatRoughness: 0.4 },
   SpringClip: { color: 13619926, metalness: 0.9, roughness: 0.2, refl: 1.2, bumpScale: 1, clearcoat: 0.08, clearcoatRoughness: 0.2 },
-  Trim: { color: 15922165, metalness: 0, roughness: 0.3, refl: 0.7, bumpScale: 0.02, clearcoat: 0.3, clearcoatRoughness: 0.05 },
+  Trim: { color: 15922165, metalness: 0, roughness: 0.3, refl: 0.4, bumpScale: 0.02, clearcoat: 0.3, clearcoatRoughness: 0.05 },
   Reflector: { color: 10115653, metalness: 1, roughness: 0.12, refl: 1.8, bumpScale: 1, clearcoat: 0.15, clearcoatRoughness: 0.08 },
   SilverReflector: { color: 14211288, metalness: 1, roughness: 0.1, refl: 2, bumpScale: 2, clearcoat: 0.1, clearcoatRoughness: 0.08 },
-  Lens: { color: 16777215, metalness: 0.03, roughness: 0, refl: 0, bumpScale: 1 },
-  LED: { color: 16757082, metalness: 0, roughness: 0.4, refl: 0.5, bumpScale: 1, emissive: 16761706, emissiveIntensity: 1 }
+  Lens: { color: 16777215, metalness: 0, roughness: 0.1, refl: 1.2, bumpScale: 1 },
+  LED: { color: 16757082, metalness: 0, roughness: 0.4, refl: 0.5, bumpScale: 1, emissive: 16761706, emissiveIntensity: 0.45 }
 };
 
 // js/main.js
@@ -27634,7 +27634,7 @@ try {
   scene.add(new AmbientLight(16777215, 0.5));
 }
 var studioCenter = new Vector3(0, 1.35, 0);
-var keyLight = new RectAreaLight(16773344, 12, 6, 4);
+var keyLight = new RectAreaLight(16773344, 8, 6, 4);
 keyLight.position.set(-4.5, 4, 5);
 keyLight.lookAt(studioCenter);
 scene.add(keyLight);
@@ -27642,7 +27642,7 @@ var fillLight = new RectAreaLight(13623536, 3, 4, 3);
 fillLight.position.set(5, 2, 3);
 fillLight.lookAt(studioCenter);
 scene.add(fillLight);
-var rimLight = new RectAreaLight(12375295, 8, 5, 5);
+var rimLight = new RectAreaLight(12375295, 6, 5, 5);
 rimLight.position.set(0, 4, -6);
 rimLight.lookAt(studioCenter);
 scene.add(rimLight);
@@ -27652,9 +27652,9 @@ scene.add(shadowDir);
 var composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 var ssao = new SSAOPass(scene, camera, innerWidth, innerHeight);
-ssao.kernelRadius = 0.22;
-ssao.minDistance = 2e-3;
-ssao.maxDistance = 0.012;
+ssao.kernelRadius = 0.38;
+ssao.minDistance = 1e-3;
+ssao.maxDistance = 0.05;
 composer.addPass(ssao);
 if (CONFIG.bloom.enabled) {
   const bloom = new UnrealBloomPass(
@@ -27883,19 +27883,21 @@ function upgradeLens() {
     const mat = new MeshPhysicalMaterial({
       color: 16777215,
       metalness: 0,
-      roughness: 0,
+      roughness: 0.1,
+      // 轻微磨砂扩散，但仍是透光玻璃（非 opacity 假玻璃）
       transmission: 1,
-      thickness: 0.1,
-      // 更薄，更清澈
+      thickness: 0.2,
+      // 有厚度，折射更明显
       ior: 1.49,
-      envMapIntensity: 0.8,
-      clearcoat: 0,
-      clearcoatRoughness: 0,
-      specularIntensity: 0.1,
+      envMapIntensity: 1.2,
+      clearcoat: 0.1,
+      clearcoatRoughness: 0.05,
+      specularIntensity: 0.5,
       attenuationColor: new Color(16777215),
       attenuationDistance: 0.5,
-      transparent: true,
-      side: FrontSide
+      transparent: false,
+      // 关键：用 transmission 折射，不用 opacity 透明
+      side: DoubleSide
     });
     const ov = MATERIALS.Lens;
     if (ov) {
