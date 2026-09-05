@@ -27416,7 +27416,7 @@ var CONFIG = {
   //   'cineon' | 'aces' | 'neutral' | 'reinhard' | 'none'
   toneMapping: "aces",
   // 曝光：实测 Vectary 用 1.42
-  exposure: 1.57,
+  exposure: 1.7,
   // 对比度/饱和度：Vectary 用 contrast 1.08 / saturation 1
   contrast: 1.08,
   saturation: 1,
@@ -27424,7 +27424,7 @@ var CONFIG = {
   bloom: {
     enabled: true,
     threshold: 1.5,
-    strength: 0.9,
+    strength: 1,
     radius: 0.66
     // = Vectary size
   },
@@ -27485,13 +27485,14 @@ var CONFIG = {
 };
 var MATERIALS = {
   // 全部改用 MeshPhysicalMaterial：clearcoat 让白色塑料有高级渐变，金属有真实软箱反射
-  HeatSink: { color: 1710618, metalness: 0.7, roughness: 0.34, refl: 2, bumpScale: 0.13, clearcoat: 0, clearcoatRoughness: 0.3 },
-  SpringClip: { color: 13158600, metalness: 1, roughness: 0.14, refl: 2.6, bumpScale: 1, clearcoat: 0.1, clearcoatRoughness: 0.12 },
-  Trim: { color: 15395820, metalness: 0, roughness: 0.3, refl: 1.6, bumpScale: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.06 },
-  Reflector: { color: 10115653, metalness: 1, roughness: 0.1, refl: 3.6, bumpScale: 1, clearcoat: 0.3, clearcoatRoughness: 0.08 },
-  SilverReflector: { color: 13948116, metalness: 1, roughness: 0.02, refl: 3.8, bumpScale: 2, clearcoat: 0.2, clearcoatRoughness: 0.05 },
+  // 高端产品摄影参数：白壳=物理材质清漆，反光杯=高反射软箱，铝=金属拉丝
+  HeatSink: { color: 2764080, metalness: 0.7, roughness: 0.3, refl: 1.6, bumpScale: 0.1, clearcoat: 0, clearcoatRoughness: 0.4 },
+  SpringClip: { color: 13619926, metalness: 0.9, roughness: 0.2, refl: 2, bumpScale: 1, clearcoat: 0.08, clearcoatRoughness: 0.2 },
+  Trim: { color: 15922164, metalness: 0, roughness: 0.3, refl: 1.8, bumpScale: 0.3, clearcoat: 0.15, clearcoatRoughness: 0.08 },
+  Reflector: { color: 10115653, metalness: 0.9, roughness: 0.08, refl: 2, bumpScale: 1, clearcoat: 0.2, clearcoatRoughness: 0.06 },
+  SilverReflector: { color: 14211288, metalness: 0.9, roughness: 0.06, refl: 2.2, bumpScale: 2, clearcoat: 0.15, clearcoatRoughness: 0.05 },
   Lens: { color: 16777215, metalness: 0.03, roughness: 0, refl: 0, bumpScale: 1 },
-  LED: { color: 16752970, metalness: 0, roughness: 0.4, refl: 0.6, bumpScale: 1, emissive: 16757082, emissiveIntensity: 4 }
+  LED: { color: 16757082, metalness: 0, roughness: 0.4, refl: 0.6, bumpScale: 1, emissive: 16761706, emissiveIntensity: 6 }
 };
 
 // js/main.js
@@ -27522,7 +27523,21 @@ renderer.toneMapping = TONE_MAP[CONFIG.toneMapping] ?? CineonToneMapping;
 renderer.toneMappingExposure = CONFIG.exposure;
 renderer.outputColorSpace = SRGBColorSpace;
 var scene = new Scene();
-scene.background = new Color("#16181d");
+scene.background = (() => {
+  const c = document.createElement("canvas");
+  c.width = 2;
+  c.height = 256;
+  const g = c.getContext("2d");
+  const grd = g.createLinearGradient(0, 0, 0, 256);
+  grd.addColorStop(0, "#eef1f4");
+  grd.addColorStop(0.55, "#ccd2d9");
+  grd.addColorStop(1, "#a7adb6");
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 2, 256);
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  return t;
+})();
 var camera = new PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 500);
 camera.position.set(3.8, 2.8, 6.2);
 var controls = new OrbitControls(camera, canvas);
@@ -27557,28 +27572,28 @@ try {
   const pmrem = new PMREMGenerator(renderer);
   const envTex = await new RGBELoader().loadAsync(CONFIG.hdriUrl);
   scene.environment = pmrem.fromEquirectangular(envTex).texture;
-  scene.environmentIntensity = 0.4;
+  scene.environmentIntensity = 1.25;
   scene.environmentRotation.set(6.213, 4.049, 0);
   envEquirect = envTex;
 } catch (e) {
   console.warn("HDRI \u52A0\u8F7D\u5931\u8D25\uFF0C\u9000\u56DE AmbientLight", e);
   scene.add(new AmbientLight(16777215, 0.5));
 }
-var keyLight = new DirectionalLight(16777215, 1.7);
+var keyLight = new DirectionalLight(16777215, 2);
 keyLight.position.set(6, 9, 6);
 scene.add(keyLight);
-var fillLight = new DirectionalLight(14673646, 1.5);
+var fillLight = new DirectionalLight(14673646, 0.9);
 fillLight.position.set(-5, 3, -4);
 scene.add(fillLight);
-var rimLight = new DirectionalLight(12572927, 0.8);
+var rimLight = new DirectionalLight(12572927, 1.1);
 rimLight.position.set(0, 5, -8);
 scene.add(rimLight);
 var composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 var ssao = new SSAOPass(scene, camera, innerWidth, innerHeight);
-ssao.kernelRadius = 0.6;
-ssao.minDistance = 1e-3;
-ssao.maxDistance = 0.04;
+ssao.kernelRadius = 0.35;
+ssao.minDistance = 5e-4;
+ssao.maxDistance = 0.02;
 composer.addPass(ssao);
 if (CONFIG.bloom.enabled) {
   const bloom = new UnrealBloomPass(
@@ -27595,7 +27610,7 @@ var gradePass = new ShaderPass({
     uExposure: { value: 1 },
     uContrast: { value: 1.06 },
     uSaturation: { value: 1.05 },
-    uVignette: { value: 0.22 }
+    uVignette: { value: 0.12 }
   },
   vertexShader: "varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
   fragmentShader: [
@@ -27716,9 +27731,12 @@ function addLEDLight() {
   leds.forEach((m) => box.expandByObject(m));
   const center = box.getCenter(new Vector3());
   const size = box.getSize(new Vector3()).length() || 1;
-  const ledLight = new PointLight(16757596, 3, Math.max(2, size * 3), 2);
+  const ledLight = new PointLight(16757596, 6, Math.max(4, size * 6), 1.4);
   ledLight.position.copy(center);
   scene.add(ledLight);
+  const glow = new PointLight(16761706, 2, Math.max(8, size * 10), 1.6);
+  glow.position.copy(center).add(new Vector3(0, 0.1, 0.2));
+  scene.add(glow);
   window.__ledLight = ledLight;
   console.log("LED_LIGHT", JSON.stringify({ pos: center.toArray(), intensity: ledLight.intensity, distance: ledLight.distance }));
 }
@@ -28205,7 +28223,7 @@ function buildSettings() {
   clearBtn.style.marginTop = "6px";
   clearBtn.textContent = "\u6E05\u9664\u8BBE\u7F6E";
   clearBtn.addEventListener("click", () => {
-    localStorage.removeItem("lamp_settings");
+    localStorage.removeItem("lamp_settings_v2");
     location.reload();
   });
   body.appendChild(clearBtn);
@@ -28291,7 +28309,7 @@ function collectSettings() {
 function saveSettings() {
   const data = collectSettings();
   try {
-    localStorage.setItem("lamp_settings", JSON.stringify(data));
+    localStorage.setItem("lamp_settings_v2", JSON.stringify(data));
     alert("\u8BBE\u7F6E\u5DF2\u4FDD\u5B58");
   } catch (e) {
     alert("\u4FDD\u5B58\u5931\u8D25(\u8D34\u56FE\u53EF\u80FD\u592A\u5927): " + e.message);
@@ -28308,7 +28326,7 @@ function exportSettings() {
 function restoreSettings() {
   let s;
   try {
-    s = JSON.parse(localStorage.getItem("lamp_settings"));
+    s = JSON.parse(localStorage.getItem("lamp_settings_v2"));
   } catch (e) {
     return;
   }
