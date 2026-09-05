@@ -27488,11 +27488,11 @@ var MATERIALS = {
   // 高端产品摄影参数：白壳=物理材质清漆，反光杯=高反射软箱，铝=金属拉丝
   HeatSink: { color: 2764080, metalness: 0.7, roughness: 0.3, refl: 1, bumpScale: 0.1, clearcoat: 0, clearcoatRoughness: 0.4 },
   SpringClip: { color: 13619926, metalness: 0.9, roughness: 0.2, refl: 1.2, bumpScale: 1, clearcoat: 0.08, clearcoatRoughness: 0.2 },
-  Trim: { color: 16119543, metalness: 0, roughness: 0.3, refl: 0.7, bumpScale: 0.3, clearcoat: 0.3, clearcoatRoughness: 0.05 },
-  Reflector: { color: 10115653, metalness: 0.9, roughness: 0.06, refl: 1.8, bumpScale: 1, clearcoat: 0.2, clearcoatRoughness: 0.06 },
-  SilverReflector: { color: 14211288, metalness: 0.9, roughness: 0.05, refl: 1.8, bumpScale: 2, clearcoat: 0.15, clearcoatRoughness: 0.05 },
+  Trim: { color: 15922165, metalness: 0, roughness: 0.3, refl: 0.7, bumpScale: 0.02, clearcoat: 0.3, clearcoatRoughness: 0.05 },
+  Reflector: { color: 10115653, metalness: 1, roughness: 0.12, refl: 1.8, bumpScale: 1, clearcoat: 0.15, clearcoatRoughness: 0.08 },
+  SilverReflector: { color: 14211288, metalness: 1, roughness: 0.1, refl: 2, bumpScale: 2, clearcoat: 0.1, clearcoatRoughness: 0.08 },
   Lens: { color: 16777215, metalness: 0.03, roughness: 0, refl: 0, bumpScale: 1 },
-  LED: { color: 16757082, metalness: 0, roughness: 0.4, refl: 0.5, bumpScale: 1, emissive: 16761706, emissiveIntensity: 1.5 }
+  LED: { color: 16757082, metalness: 0, roughness: 0.4, refl: 0.5, bumpScale: 1, emissive: 16761706, emissiveIntensity: 1 }
 };
 
 // js/main.js
@@ -27579,14 +27579,14 @@ try {
   console.warn("HDRI \u52A0\u8F7D\u5931\u8D25\uFF0C\u9000\u56DE AmbientLight", e);
   scene.add(new AmbientLight(16777215, 0.5));
 }
-var keyLight = new DirectionalLight(16777215, 2);
+var keyLight = new DirectionalLight(16773344, 2.2);
 keyLight.position.set(6, 9, 6);
 scene.add(keyLight);
-var fillLight = new DirectionalLight(14673646, 0.9);
-fillLight.position.set(-5, 3, -4);
+var fillLight = new DirectionalLight(13623536, 0.5);
+fillLight.position.set(-6, 2, 4);
 scene.add(fillLight);
-var rimLight = new DirectionalLight(12572927, 1.1);
-rimLight.position.set(0, 5, -8);
+var rimLight = new DirectionalLight(12375295, 2.2);
+rimLight.position.set(0, 4, -7);
 scene.add(rimLight);
 var composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
@@ -27673,6 +27673,45 @@ function addStudioFloor() {
   patch.renderOrder = 2;
   scene.add(patch);
 }
+function applyMicroDetails() {
+  const S = 256;
+  const noiseTex = (lo, hi) => {
+    const c = document.createElement("canvas");
+    c.width = c.height = S;
+    const ctx = c.getContext("2d");
+    const img = ctx.createImageData(S, S);
+    for (let i = 0; i < S * S; i++) {
+      const v = lo + Math.floor(Math.random() * (hi - lo));
+      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v;
+      img.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    const t = new CanvasTexture(c);
+    t.wrapS = t.wrapT = RepeatWrapping;
+    return t;
+  };
+  const bump = noiseTex(110, 150);
+  bump.repeat.set(10, 10);
+  const rough = noiseTex(165, 235);
+  rough.repeat.set(6, 6);
+  const targets = [];
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    mats.forEach((m) => {
+      if (!m) return;
+      const n = m.name || "";
+      if (n === "Trim" || n.startsWith("Trim_")) targets.push(m);
+    });
+  });
+  targets.forEach((m) => {
+    m.bumpMap = bump;
+    m.bumpScale = 0.02;
+    m.roughnessMap = rough;
+    m.needsUpdate = true;
+  });
+  console.log("MICRO_DETAILS", targets.length);
+}
 var parts = {};
 var model = null;
 var envEquirect = null;
@@ -27750,7 +27789,7 @@ function addLEDLight() {
   leds.forEach((m) => box.expandByObject(m));
   const center = box.getCenter(new Vector3());
   const size = box.getSize(new Vector3()).length() || 1;
-  const spot = new SpotLight(16761706, 1, Math.max(3, size * 4), 0.7, 0.6, 1.6);
+  const spot = new SpotLight(16761706, 1.2, Math.max(4, size * 5), 0.8, 0.6, 1.4);
   spot.position.copy(center).add(new Vector3(0, size * 0.7, 0));
   spot.target.position.copy(center).add(new Vector3(0, -size * 0.4, 0));
   scene.add(spot);
@@ -27824,6 +27863,7 @@ upgradeLens();
 applyTextures();
 addLEDLight();
 addStudioFloor();
+applyMicroDetails();
 function applyTextures() {
   const loadMap = (url, prefix) => {
     new TextureLoader().load(url, (tex) => {
