@@ -27416,7 +27416,7 @@ var CONFIG = {
   //   'cineon' | 'aces' | 'neutral' | 'reinhard' | 'none'
   toneMapping: "aces",
   // 曝光：实测 Vectary 用 1.42
-  exposure: 1.7,
+  exposure: 0.72,
   // 对比度/饱和度：Vectary 用 contrast 1.08 / saturation 1
   contrast: 1.08,
   saturation: 1,
@@ -27424,7 +27424,7 @@ var CONFIG = {
   bloom: {
     enabled: true,
     threshold: 1.5,
-    strength: 1,
+    strength: 0.8,
     radius: 0.66
     // = Vectary size
   },
@@ -27486,13 +27486,13 @@ var CONFIG = {
 var MATERIALS = {
   // 全部改用 MeshPhysicalMaterial：clearcoat 让白色塑料有高级渐变，金属有真实软箱反射
   // 高端产品摄影参数：白壳=物理材质清漆，反光杯=高反射软箱，铝=金属拉丝
-  HeatSink: { color: 2764080, metalness: 0.7, roughness: 0.3, refl: 1.6, bumpScale: 0.1, clearcoat: 0, clearcoatRoughness: 0.4 },
-  SpringClip: { color: 13619926, metalness: 0.9, roughness: 0.2, refl: 2, bumpScale: 1, clearcoat: 0.08, clearcoatRoughness: 0.2 },
-  Trim: { color: 16119543, metalness: 0, roughness: 0.3, refl: 1.8, bumpScale: 0.3, clearcoat: 0.3, clearcoatRoughness: 0.05 },
-  Reflector: { color: 10115653, metalness: 0.9, roughness: 0.06, refl: 2.5, bumpScale: 1, clearcoat: 0.2, clearcoatRoughness: 0.06 },
-  SilverReflector: { color: 14211288, metalness: 0.9, roughness: 0.05, refl: 2.5, bumpScale: 2, clearcoat: 0.15, clearcoatRoughness: 0.05 },
+  HeatSink: { color: 2764080, metalness: 0.7, roughness: 0.3, refl: 1, bumpScale: 0.1, clearcoat: 0, clearcoatRoughness: 0.4 },
+  SpringClip: { color: 13619926, metalness: 0.9, roughness: 0.2, refl: 1.2, bumpScale: 1, clearcoat: 0.08, clearcoatRoughness: 0.2 },
+  Trim: { color: 16119543, metalness: 0, roughness: 0.3, refl: 0.7, bumpScale: 0.3, clearcoat: 0.3, clearcoatRoughness: 0.05 },
+  Reflector: { color: 10115653, metalness: 0.9, roughness: 0.06, refl: 1.8, bumpScale: 1, clearcoat: 0.2, clearcoatRoughness: 0.06 },
+  SilverReflector: { color: 14211288, metalness: 0.9, roughness: 0.05, refl: 1.8, bumpScale: 2, clearcoat: 0.15, clearcoatRoughness: 0.05 },
   Lens: { color: 16777215, metalness: 0.03, roughness: 0, refl: 0, bumpScale: 1 },
-  LED: { color: 16757082, metalness: 0, roughness: 0.4, refl: 0.6, bumpScale: 1, emissive: 16761706, emissiveIntensity: 4 }
+  LED: { color: 16757082, metalness: 0, roughness: 0.4, refl: 0.5, bumpScale: 1, emissive: 16761706, emissiveIntensity: 1.5 }
 };
 
 // js/main.js
@@ -27529,9 +27529,9 @@ scene.background = (() => {
   c.height = 256;
   const g = c.getContext("2d");
   const grd = g.createLinearGradient(0, 0, 0, 256);
-  grd.addColorStop(0, "#eef1f4");
-  grd.addColorStop(0.55, "#ccd2d9");
-  grd.addColorStop(1, "#a7adb6");
+  grd.addColorStop(0, "#dedede");
+  grd.addColorStop(0.55, "#d8d8d8");
+  grd.addColorStop(1, "#cfcfcf");
   g.fillStyle = grd;
   g.fillRect(0, 0, 2, 256);
   const t = new CanvasTexture(c);
@@ -27642,9 +27642,9 @@ function addStudioFloor() {
   c.width = c.height = S;
   const ctx = c.getContext("2d");
   const g = ctx.createRadialGradient(S / 2, S / 2, S * 0.02, S / 2, S / 2, S * 0.5);
-  g.addColorStop(0, "#dcdfe3");
-  g.addColorStop(0.45, "#ced3d9");
-  g.addColorStop(1, "#a9b0b9");
+  g.addColorStop(0, "#cbcbcb");
+  g.addColorStop(0.45, "#c5c5c5");
+  g.addColorStop(1, "#b5b5b5");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, S, S);
   const ftex = new CanvasTexture(c);
@@ -27750,7 +27750,7 @@ function addLEDLight() {
   leds.forEach((m) => box.expandByObject(m));
   const center = box.getCenter(new Vector3());
   const size = box.getSize(new Vector3()).length() || 1;
-  const spot = new SpotLight(16761706, 2, Math.max(3, size * 4), 0.7, 0.6, 1.6);
+  const spot = new SpotLight(16761706, 1, Math.max(3, size * 4), 0.7, 0.6, 1.6);
   spot.position.copy(center).add(new Vector3(0, size * 0.7, 0));
   spot.target.position.copy(center).add(new Vector3(0, -size * 0.4, 0));
   scene.add(spot);
@@ -28242,7 +28242,7 @@ function buildSettings() {
   clearBtn.style.marginTop = "6px";
   clearBtn.textContent = "\u6E05\u9664\u8BBE\u7F6E";
   clearBtn.addEventListener("click", () => {
-    localStorage.removeItem("lamp_settings_v2");
+    localStorage.removeItem("lamp_settings_v3");
     location.reload();
   });
   body.appendChild(clearBtn);
@@ -28328,7 +28328,7 @@ function collectSettings() {
 function saveSettings() {
   const data = collectSettings();
   try {
-    localStorage.setItem("lamp_settings_v2", JSON.stringify(data));
+    localStorage.setItem("lamp_settings_v3", JSON.stringify(data));
     alert("\u8BBE\u7F6E\u5DF2\u4FDD\u5B58");
   } catch (e) {
     alert("\u4FDD\u5B58\u5931\u8D25(\u8D34\u56FE\u53EF\u80FD\u592A\u5927): " + e.message);
@@ -28345,7 +28345,7 @@ function exportSettings() {
 function restoreSettings() {
   let s;
   try {
-    s = JSON.parse(localStorage.getItem("lamp_settings_v2"));
+    s = JSON.parse(localStorage.getItem("lamp_settings_v3"));
   } catch (e) {
     return;
   }
